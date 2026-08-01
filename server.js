@@ -6,15 +6,13 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Quản lý danh sách thiết bị theo device_id (MAC Address)
+// Lưu trữ dữ liệu các thiết bị theo ID tự gán (ví dụ: devices["MAY_LOC_01"])
 const devices = {};
 
-// Khởi tạo thiết bị nếu chưa có trong bộ nhớ
 function getOrCreateDevice(deviceId) {
     if (!devices[deviceId]) {
         devices[deviceId] = {
-            secretKey: "", // Sẽ được cập nhật khi ESP8266 gửi sync lần đầu
-            name: `Thiết bị ${deviceId.slice(-5)}`,
+            secretKey: "", // Lưu mã PIN từ ESP gửi lên
             data: {
                 type: "NONE",
                 d1: "N/A", d2: "N/A", d3: "N/A", d4: "N/A",
@@ -34,10 +32,10 @@ function getOrCreateDevice(deviceId) {
 }
 
 // ==========================================
-// --- API DÀNH CHO APP INVENTOR / WEB ---
+// --- API DÀNH CHO APP INVENTOR ---
 // ==========================================
 
-// 1. App lấy dữ liệu hiển thị (BẮT BUỘC TRUYỀN: ?device_id=...&secret_key=...)
+// 1. App lấy dữ liệu hiển thị (?device_id=MAY_LOC_01&secret_key=123456)
 app.get('/api/getdata', (req, res) => {
     const { device_id, secret_key } = req.query;
 
@@ -47,18 +45,15 @@ app.get('/api/getdata', (req, res) => {
 
     const device = devices[device_id];
 
-    // XÁC THỰC MÃ PIN
+    // Kiểm tra Mã PIN
     if (!secret_key || device.secretKey !== secret_key) {
         return res.status(403).json({ status: "ERROR", message: "Mã PIN không chính xác!" });
     }
 
-    res.json({
-        name: device.name,
-        ...device.data
-    });
+    res.json(device.data);
 });
 
-// 2. App gửi lệnh điều khiển (BẮT BUỘC TRUYỀN trong body: device_id, secret_key, cmd)
+// 2. App gửi lệnh điều khiển (body: device_id, secret_key, cmd)
 app.post('/api/control', (req, res) => {
     const { device_id, secret_key, cmd } = req.body;
 
@@ -68,7 +63,7 @@ app.post('/api/control', (req, res) => {
 
     const device = devices[device_id];
 
-    // XÁC THỰC MÃ PIN
+    // Kiểm tra Mã PIN
     if (!secret_key || device.secretKey !== secret_key) {
         return res.status(403).json({ status: "ERROR", message: "Mã PIN không chính xác!" });
     }
@@ -79,29 +74,6 @@ app.post('/api/control', (req, res) => {
     }
 
     res.status(400).json({ status: "ERROR", message: "Lệnh không hợp lệ" });
-});
-
-// 3. Đổi tên gợi nhớ cho thiết bị
-app.post('/api/device/rename', (req, res) => {
-    const { device_id, secret_key, name } = req.body;
-
-    if (!device_id || !devices[device_id]) {
-        return res.status(404).json({ status: "ERROR", message: "Thiết bị không tồn tại" });
-    }
-
-    const device = devices[device_id];
-
-    // XÁC THỰC MÃ PIN
-    if (!secret_key || device.secretKey !== secret_key) {
-        return res.status(403).json({ status: "ERROR", message: "Mã PIN không chính xác!" });
-    }
-
-    if (name) {
-        device.name = name;
-        return res.json({ status: "OK", message: `Đã đổi tên thành: ${name}` });
-    }
-
-    res.status(400).json({ status: "ERROR", message: "Tên không hợp lệ" });
 });
 
 // ==========================================
@@ -117,11 +89,11 @@ app.post('/api/esp-sync', (req, res) => {
 
     const device = getOrCreateDevice(device_id);
     
-    // Cập nhật Secret Key mới nhất từ ESP và thời gian hoạt động
+    // Cập nhật PIN và thời gian chạy
     device.secretKey = secret_key;
     device.lastSeen = Date.now();
 
-    // Lọc và lưu dữ liệu cảm biến
+    // Lưu dữ liệu cảm biến
     if (type) {
         if (type === "MULTI") {
             if (req.body.d1 && !req.body.d1.includes(':')) {
@@ -140,10 +112,10 @@ app.post('/api/esp-sync', (req, res) => {
         }
     }
 
-    // Trả về lệnh chờ riêng của thiết bị này
+    // Phản hồi các lệnh đang chờ của riêng thiết bị này
     res.json(device.commands);
 
-    // Reset lệnh sau khi đã trả về cho ESP
+    // Reset các cờ lệnh sau khi gửi
     for (let key in device.commands) {
         device.commands[key] = 0;
     }
