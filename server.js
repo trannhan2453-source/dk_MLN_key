@@ -51,8 +51,8 @@ app.get('/api/getdata', (req, res) => {
     }
 
     // --- CẤU HÌNH TIMEOUT ONLINE ---
-    // Nếu trong vòng 5 giây (5000ms) ESP không gửi dữ liệu -> Coi như OFFLINE
-    const TIMEOUT_MS = 5000; 
+    // Nếu trong vòng 15 giây (15000ms) ESP không gửi dữ liệu -> Coi như OFFLINE
+    const TIMEOUT_MS = 15000; 
     const isOnline = (Date.now() - device.lastSeen) < TIMEOUT_MS;
 
     // Trả về dữ liệu kèm theo trạng thái Online/Offline
