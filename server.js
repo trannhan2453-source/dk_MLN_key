@@ -50,7 +50,17 @@ app.get('/api/getdata', (req, res) => {
         return res.status(403).json({ status: "ERROR", message: "Mã PIN không chính xác!" });
     }
 
-    res.json(device.data);
+    // --- CẤU HÌNH TIMEOUT ONLINE ---
+    // Nếu trong vòng 5 giây (5000ms) ESP không gửi dữ liệu -> Coi như OFFLINE
+    const TIMEOUT_MS = 5000; 
+    const isOnline = (Date.now() - device.lastSeen) < TIMEOUT_MS;
+
+    // Trả về dữ liệu kèm theo trạng thái Online/Offline
+    res.json({
+        is_online: isOnline, // true = Online, false = Offline
+        last_seen_seconds_ago: Math.round((Date.now() - device.lastSeen) / 1000), // Số giây từ lần tương tác cuối
+        data: device.data
+    });
 });
 
 // 2. App gửi lệnh điều khiển (body: device_id, secret_key, cmd)
