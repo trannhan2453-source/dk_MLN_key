@@ -52,29 +52,7 @@ app.get('/api/getdata', (req, res) => {
 
     res.json(device.data);
 });
-// --- API LẤY DANH SÁCH THIẾT BỊ (ONLINE/OFFLINE) ---
-// --- API LẤY DANH SÁCH THIẾT BỊ DẠNG JSON ---
-// ==========================================
-app.get('/api/devices', (req, res) => {
-    const TIMEOUT_MS = 15000; // 15 giây không gửi data = Offline
-    const now = Date.now();
-    const result = [];
 
-    for (const id in devices) {
-        const dev = devices[id];
-        const isOnline = (now - dev.lastSeen) < TIMEOUT_MS;
-
-        result.push({
-            device_id: id,
-            is_online: isOnline,            // boolean: true / false
-            status: isOnline ? "ONLINE" : "OFFLINE", // chuỗi tiện hiển thị
-            last_seen: dev.lastSeen         // timestamp
-        });
-    }
-
-    // Trả về JSON Array
-    res.json(result);
-});
 // 2. App gửi lệnh điều khiển (body: device_id, secret_key, cmd)
 app.post('/api/control', (req, res) => {
     const { device_id, secret_key, cmd } = req.body;
